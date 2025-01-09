@@ -1,0 +1,219 @@
+import requests
+import time
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from cassandra.cluster import Cluster
+from cassandra.query import SimpleStatement
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S ')
+
+DATETIME_FORMAT = "%Y%m%d%H%M%S"
+
+app = FastAPI()
+
+auth = HTTPBasic()
+
+users = {
+    "test": "wtc25"
+}
+
+connection = None
+db_error = None
+
+def verify_password(credentials: HTTPBasicCredentials = Depends(auth)):
+    if credentials.username in users and users[credentials.username] == credentials.password:
+        return credentials.username
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+@app.get("/data_usage")
+async def query_database(msisdn: str, start_time: str, end_time: str, username: str = Depends(verify_password)):
+    start_time = datetime.strptime(start_time, DATETIME_FORMAT)
+    end_time = datetime.strptime(end_time, DATETIME_FORMAT)
+
+    response = {
+        'msisdn': msisdn,
+        'start_time': start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'end_time': end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'usage': []
+    }
+
+    get_call_records(msisdn, start_time, end_time, response['usage'])
+    get_data_records(msisdn, start_time, end_time, response['usage'])
+
+    return JSONResponse(content=response)
+
+
+@app.get("/msisdns")
+async def get_msisdns():
+    response = {
+        "msisdns": []
+    }
+    query = "SELECT msisdn FROM call_usage_records LIMIT 5;"
+    try:
+        query = SimpleStatement(query)
+        result = connection.execute(query)
+
+        for row in result:
+            response['msisdns'].append(row.msisdn)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving MSISDNs: {str(e)}")
+    
+    query = "SELECT msisdn FROM data_usage_records LIMIT 5;"
+    try:
+        query = SimpleStatement(query)
+        result = connection.execute(query)
+
+        for row in result:
+            response['msisdns'].append(row.msisdn)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving MSISDNs: {str(e)}")
+
+    return JSONResponse(content=response)
+
+
+async def test_scylla_connection():
+    connection = False
+    tries = 10
+    while not connection and tries > 0:
+        response_code = None
+        try:
+            response_code = requests.get("http://scylla:9180/metrics").status_code
+        except Exception as e:
+            logger.warning(f"Scylla Not Healthy: {str(e)}")
+        if response_code == 200:
+            connection = True
+        else:
+            tries -= 1
+            logger.info(f"Retrying Scylla Connection - Attempts Left: {tries}")
+            time.sleep(2)
+    if connection:
+        time.sleep(5)
+        return True
+    else:
+        logger.warning("Connection to Scylla Container Could Not Be Established!")
+        return False
+    
+
+async def ensure_schema_present():
+    global connection
+    test_connection = None
+    tries = 10
+    schema_present = False
+    while not schema_present and tries > 0:
+        try:
+            cluster = Cluster(['scylla'])
+            test_connection = cluster.connect('cdr_summaries')
+            schema_present = True
+        except Exception as e:
+            logger.warning(f"Error in Scylla Connection or Keyspace: {str(e)}")
+            tries -= 1
+            logger.info(f"Retrying Scylla Connection: Tries Left - {tries}")
+        if not schema_present:
+            time.sleep(10)
+    if schema_present:
+        connection = test_connection
+    else:
+        logger.error("Could not connect to Scylla after 10 tries. Exiting.")
+        exit(1)
+
+
+async def get_call_records(msisdn, start_time, end_time, response_records):
+    global db_error
+    query = "SELECT * FROM call_usage_records WHERE msisdn = %s AND start_time >= %s AND start_time <= %s;"
+    params = [msisdn, start_time, end_time]
+
+    try:
+        query = SimpleStatement(query)
+        result = connection.execute(query, params)
+
+        for row in result:
+            call = {
+                'category': 'voice',
+                'usage_type': row.usage_type,
+                'total': row.call_duration_sec,
+                'measure': 'seconds',
+                'start_time': row.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                'cost_wak': float(row.session_cost_wak)
+            }
+            response_records.append(call)
+        return True
+
+    except Exception as e:
+        db_error = str(e)
+        return False
+
+
+async def get_data_records(msisdn, start_time, end_time, response_records):
+    global db_error
+    query = "SELECT * FROM data_usage_records WHERE msisdn = %s AND event_datetime >= %s AND event_datetime <= %s;"
+    params = [msisdn, start_time, end_time]
+
+    try:
+        query = SimpleStatement(query)
+        result = connection.execute(query, params)
+
+        for row in result:
+            call = {
+                'category': 'data',
+                'usage_type': row.usage_type,
+                'total': row.total_bytes,
+                'measure': 'bytes',
+                'start_time': row.event_datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                'cost_wak': float(row.session_cost_wak)
+            }
+            response_records.append(call)
+        return True
+
+    except Exception as e:
+        db_error = str(e)
+        return False
+async def query_database(msisdn: str, start_time: str, end_time: str, username: str = Depends(verify_password)):
+    """
+    Query the database for call and data usage records within a specified time range for a given MSISDN.
+
+    This function retrieves both call and data usage records for a specified mobile subscriber
+    within a given time range. It formats the results into a JSON response.
+
+    Parameters:
+    msisdn (str): The Mobile Station International Subscriber Directory Number (phone number)
+    start_time (str): The start of the time range in format "YYYYMMDDhhmmss"
+    end_time (str): The end of the time range in format "YYYYMMDDhhmmss"
+    username (str): The authenticated username (dependency injected by FastAPI)
+
+    Returns:
+    JSONResponse: A JSON object containing:
+        - msisdn: The queried phone number
+        - start_time: The formatted start time of the query range
+        - end_time: The formatted end time of the query range
+        - usage: A list of usage records (both call and data) within the specified time range
+    """
+    start_time = datetime.strptime(start_time, DATETIME_FORMAT)
+    end_time = datetime.strptime(end_time, DATETIME_FORMAT)
+
+    response = {
+        'msisdn': msisdn,
+        'start_time': start_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'end_time': end_time.strftime("%Y-%m-%d %H:%M:%S"),
+        'usage': []
+    }
+
+    get_call_records(msisdn, start_time, end_time, response['usage'])
+    get_data_records(msisdn, start_time, end_time, response['usage'])
+
+    return JSONResponse(content=response)
+if __name__ == "__main__":
+    if test_scylla_connection():
+        ensure_schema_present()
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=5050)
+    else:
+        exit(1)

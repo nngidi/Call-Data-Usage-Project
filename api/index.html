@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Your Usage</h1>
+    </header>
+    <main>
+        <div id="details">
+            <h4>Provide Your Details and Select Your MSISDN</h4>
+            <input type="text" id="username_in" placeholder="Username" required>
+            <input type="password" id="password_in" placeholder="Password" required>
+            <select id="msisdn_selec" required>
+                <option value="" disabled selected>Select MSISDN</option>
+            </select>
+            <button type="button" id="query_btn">Get Usage</button>
+        </div>
+        <div id="info"></div>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>

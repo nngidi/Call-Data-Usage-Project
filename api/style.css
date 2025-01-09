@@ -1,0 +1,177 @@
+/* Global Reset and Basic Typography */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif; /* Simple, clean font */
+}
+
+html {
+    font-size: 16px; /* Base font size */
+}
+
+/* Body Styling */
+body {
+    width: 100vw;
+    height: 100vh;
+    background-color: #F4F7FA; /* Light grey background */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2rem 1rem;
+}
+
+/* Header Styling */
+header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    background-color: #4A90E2; /* Soft blue */
+    padding: 1.5rem 0;
+    border-radius: 0.5rem;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Light shadow */
+}
+
+h1 {
+    font-size: 2rem; /* Heading size */
+    color: white;
+}
+
+/* Main Layout */
+main {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 2rem;
+}
+
+/* Details Section Layout */
+#details {
+    width: 100%;
+    max-width: 450px;
+    background-color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#details h4 {
+    text-align: center;
+    color: #333;
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+#details input,
+#details select,
+#details button {
+    width: 100%;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+}
+
+#details input:focus,
+#details select:focus,
+#details button:focus {
+    outline: none;
+    border-color: #4A90E2; /* Focus effect */
+}
+
+#details button {
+    background-color: #4A90E2; /* Soft blue */
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+#details button:hover {
+    background-color: #357ABD; /* Slightly darker blue */
+    transform: scale(1.05); /* Slight hover scale effect */
+}
+
+/* Info Section */
+#info {
+    margin-top: 2rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.event_box {
+    background-color: #FFF;
+    border-radius: 0.5rem;
+    border: 1px solid #E0E0E0;
+    margin: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.event_box:hover {
+    transform: translateY(-5px); /* Lift effect */
+    box-shadow: 0px 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.event_box h3 {
+    font-size: 1.25rem;
+    color: #4A90E2; /* Heading color */
+    margin-bottom: 1rem;
+}
+
+.event_box p {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 0.75rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+
+    #details {
+        max-width: 100%;
+    }
+
+    .event_box {
+        width: 90%; /* Adjust width for mobile */
+    }
+
+    #details button {
+        padding: 1rem; /* Larger buttons on mobile */
+    }
+}
+
+/* Mobile-specific Styles */
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.25rem;
+    }
+
+    h3 {
+        font-size: 1.125rem;
+    }
+
+    h4 {
+        font-size: 1rem;
+    }
+
+    p {
+        font-size: 0.875rem;
+    }
+}
